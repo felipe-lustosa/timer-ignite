@@ -1,5 +1,10 @@
-interface HomeProps {}
+
+interface HomeProps { }
 
 export function Home(props: HomeProps) {
-  return <h1>Home</h1>
+  return (
+    <div>
+      <h1>Home</h1>
+    </div>
+  )
 }
