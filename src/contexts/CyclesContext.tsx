@@ -1,4 +1,4 @@
-import { createContext, ReactNode, useState } from "react"
+import { createContext, ReactNode, useReducer, useState } from "react"
 
 interface CreateCycleData {
   task: string
@@ -15,6 +15,7 @@ interface Cycle {
 }
 
 interface CyclesContextType {
+  cycles: Cycle[]
   activeCycle: Cycle | undefined
   activeCycleId: string | null
   amountSecondsPassed: number
@@ -24,15 +25,64 @@ interface CyclesContextType {
   interruptCurrentCycle: () => void
 }
 
+export const CyclesContext = createContext({} as CyclesContextType)
+
 interface CyclesContextProviderProps {
   children: ReactNode
 }
 
-export const CyclesContext = createContext({} as CyclesContextType)
+interface CyclesState {
+  cycles: Cycle[]
+  activeCycleId: string | null
+}
 
 export function CyclesContextProvider({ children }: CyclesContextProviderProps) {
-  const [cycles, setCycles] = useState<Cycle[]>([])
-  const [activeCycleId, setActiveCycleId] = useState<string | null>(null)
+  const [cyclesState, dispatch] = useReducer((state: CyclesState, action: any) => {
+    if (action.type === 'MARK_CURRENT_CYCLE_AS_FINISHED') {
+      return {
+        ...state,
+        cycles: state.cycles.map((cycle: Cycle) => {
+          if (cycle.id === activeCycleId) {
+            return { ...cycle, finishedDate: new Date }
+          } else {
+            return cycle
+          }
+        }),
+        activeCycleId: action.payload.newCycle.id
+      }
+    }
+
+    if (action.type === 'ADD_NEW_CYCLE') {
+      return {
+        ...state,
+        cycles: [...state.cycles, action.payload.newCycle],
+        activeCycleId: action.payload.newCycle.id
+      }
+    }
+
+    if (action.type === 'INTERRUPT_CURRENT_CYCLE') {
+      return {
+        ...state,
+        cycles: state.cycles.map((cycle: Cycle) => {
+          if (cycle.id === state.activeCycleId) {
+            return { ...cycle, interruptedDate: new Date }
+          } else {
+            return cycle
+          }
+        }),
+        activeCycleId: null
+      }
+    }
+
+    return state
+  }, {
+    cycles: [],
+    activeCycleId: null
+  }
+  )
+
+  const { cycles, activeCycleId } = cyclesState
+
   const [amountSecondsPassed, setAmountSecondsPassed] = useState(0)
 
   const activeCycle = cycles.find((cycle: Cycle) => cycle.id === activeCycleId)
@@ -42,13 +92,12 @@ export function CyclesContextProvider({ children }: CyclesContextProviderProps) 
   }
 
   function markCurrentCycleAsFinished() {
-    setCycles(prevState => prevState.map((cycle: Cycle) => {
-      if (cycle.id === activeCycleId) {
-        return { ...cycle, finishedDate: new Date }
-      } else {
-        return cycle
+    dispatch({
+      type: 'MARK_CURRENT_CYCLE_AS_FINISHED',
+      payload: {
+        activeCycleId
       }
-    }))
+    })
   }
 
   function createNewCycle(data: CreateCycleData) {
@@ -61,34 +110,28 @@ export function CyclesContextProvider({ children }: CyclesContextProviderProps) 
       startDate: new Date(),
     }
 
-    setCycles((prevState) => [...prevState, newCycle]);
-    setActiveCycleId(id)
+    dispatch({
+      type: 'ADD_NEW_CYCLE',
+      payload: {
+        newCycle
+      }
+    })
     setAmountSecondsPassed(0)
 
-    // reset();
   }
 
   function interruptCurrentCycle() {
-    setCycles(prevState => prevState.map((cycle: Cycle) => {
-      if (cycle.id === activeCycleId) {
-        return { ...cycle, interruptedDate: new Date }
-      } else {
-        return cycle
+    dispatch({
+      type: 'INTERRUPT_CURRENT_CYCLE',
+      payload: {
+        activeCycleId
       }
-    }))
-    setActiveCycleId(null);
+    })
   }
 
   return (
-    <CyclesContext.Provider value={{ activeCycle, activeCycleId, amountSecondsPassed, markCurrentCycleAsFinished, setSecondsPassed, createNewCycle, interruptCurrentCycle }}>
+    <CyclesContext.Provider value={{ activeCycle, activeCycleId, amountSecondsPassed, cycles, markCurrentCycleAsFinished, setSecondsPassed, createNewCycle, interruptCurrentCycle }}>
       {children}
     </CyclesContext.Provider>
   )
 }
-
-
-
-
-
-
-{/* <CyclesContext.Provider value={{ activeCycle, activeCycleId, amountSecondsPassed, markCurrentCycleAsFinished, setSecondsPassed }}> */ }
